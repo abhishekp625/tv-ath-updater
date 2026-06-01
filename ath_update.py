@@ -25,6 +25,18 @@ client = gspread.authorize(creds)
 
 sheet = client.open("ATH_NSE").worksheet("ATH_TV")
 
+sheet.update(
+    "A1:F1",
+    [[
+        "Symbol",
+        "Prev_Close",
+        "Monthly20SMA",
+        "ATH",
+        "ATH_Date",
+        "ATH_%"
+    ]]
+)
+
 symbols = sheet.col_values(1)[1:]
 
 tv = TvDatafeed()
