@@ -26,7 +26,7 @@ client = gspread.authorize(creds)
 # Open Sheet
 # ----------------------------------
 
-sheet = client.open("ATH_NSE").worksheet("ATh_TV")
+sheet = client.open("ATH_NSE").worksheet("ATH_TV")
 
 # Optional: Write headers
 sheet.update(
