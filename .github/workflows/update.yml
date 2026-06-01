@@ -28,5 +28,8 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run Script
+        env:
+          TV_USERNAME: ${{ secrets.TV_USERNAME }}
+          TV_PASSWORD: ${{ secrets.TV_PASSWORD }}
         run: |
           python ath_update.py
