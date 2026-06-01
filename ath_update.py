@@ -1,11 +1,10 @@
 import json
-import pandas as pd
 import gspread
 from tvDatafeed import TvDatafeed, Interval
 from oauth2client.service_account import ServiceAccountCredentials
 
 # ----------------------------------
-# Load credentials from GitHub Secret
+# Google Authentication
 # ----------------------------------
 
 with open("credentials.json", "r") as f:
@@ -23,25 +22,47 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(
 
 client = gspread.authorize(creds)
 
-sheet = client.open("ATH_NSE").worksheet("ATH_TV")
+# ----------------------------------
+# Open Sheet
+# ----------------------------------
 
+sheet = client.open("ATH_NSE").worksheet("ATh_TV")
+
+# Optional: Write headers
 sheet.update(
-    "A1:F1",
+    "A1:G1",
     [[
         "Symbol",
         "Prev_Close",
         "Monthly20SMA",
         "ATH",
         "ATH_Date",
-        "ATH_%"
+        "ATH_%",
+        "Stock_Age"
     ]]
 )
 
-symbols = sheet.col_values(1)[1:]
+# ----------------------------------
+# Read Symbols
+# ----------------------------------
+
+symbols = [
+    s.strip()
+    for s in sheet.col_values(1)[1:]
+    if s.strip()
+]
+
+# ----------------------------------
+# TradingView Connection
+# ----------------------------------
 
 tv = TvDatafeed()
 
 results = []
+
+# ----------------------------------
+# Process Stocks
+# ----------------------------------
 
 for symbol in symbols:
 
@@ -50,36 +71,54 @@ for symbol in symbols:
         print(f"Processing {symbol}")
 
         df = tv.get_hist(
-            symbol=symbol.strip(),
+            symbol=symbol,
             exchange="NSE",
             interval=Interval.in_monthly,
             n_bars=300
         )
 
-        if df is None or len(df) < 25:
+        if df is None:
             raise Exception("No Data")
 
-        # Ignore current incomplete month
+        # Remove current incomplete month
         df = df.iloc[:-1]
 
-        prev_close = round(df["close"].iloc[-1], 2)
+        months_history = len(df)
+
+        if months_history < 20:
+            raise Exception(
+                f"Only {months_history} monthly candles"
+            )
+
+        prev_close = round(
+            df["close"].iloc[-1],
+            2
+        )
 
         sma20 = round(
             df["close"].rolling(20).mean().iloc[-1],
             2
         )
 
-        ath = round(df["high"].max(), 2)
+        # Safe ATH calculation
+        ath_idx = df["high"].idxmax()
 
-        ath_date = (
-            df[df["high"] == ath]
-            .index[-1]
-            .strftime("%Y-%m")
+        ath = round(
+            df.loc[ath_idx, "high"],
+            2
         )
+
+        ath_date = ath_idx.strftime("%Y-%m")
 
         ath_pct = round(
             ((prev_close - ath) / ath) * 100,
             2
+        )
+
+        is_50_month_old = (
+            "YES"
+            if months_history >= 50
+            else "NO"
         )
 
         results.append([
@@ -87,23 +126,31 @@ for symbol in symbols:
             sma20,
             ath,
             ath_date,
-            ath_pct
+            ath_pct,
+            months_history
         ])
 
     except Exception as e:
 
-        print(symbol, e)
+        print(
+            f"ERROR | {symbol} | {str(e)}"
+        )
 
         results.append([
             "",
             "",
             "",
             "",
-            ""
+            "",
+            "",
         ])
 
+# ----------------------------------
+# Write Results
+# ----------------------------------
+
 sheet.update(
-    f"B2:F{len(results)+1}",
+    f"B2:G{len(results)+1}",
     results
 )
 
