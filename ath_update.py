@@ -1,5 +1,6 @@
 import json
 import time
+import os
 import gspread
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tvDatafeed import TvDatafeed, Interval
@@ -42,7 +43,11 @@ print(f"Total Symbols : {len(symbols)}")
 # TVDATAFEED
 # ==========================================================
 
-tv = TvDatafeed()
+
+tv = TvDatafeed(
+    username=os.getenv("TV_USERNAME"),
+    password=os.getenv("TV_PASSWORD")
+)
 
 # ==========================================================
 # PROCESS ONE STOCK
@@ -150,7 +155,7 @@ def process_stock(symbol):
 
 results_dict = {}
 
-MAX_WORKERS = 8
+MAX_WORKERS = 4
 
 with ThreadPoolExecutor(
     max_workers=MAX_WORKERS
