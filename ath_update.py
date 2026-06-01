@@ -1,11 +1,13 @@
 import json
+import time
 import gspread
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from tvDatafeed import TvDatafeed, Interval
 from oauth2client.service_account import ServiceAccountCredentials
 
-# ----------------------------------
-# Google Authentication
-# ----------------------------------
+# ==========================================================
+# GOOGLE AUTH
+# ==========================================================
 
 with open("credentials.json", "r") as f:
     creds_json = json.load(f)
@@ -22,29 +24,11 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(
 
 client = gspread.authorize(creds)
 
-# ----------------------------------
-# Open Sheet
-# ----------------------------------
-
 sheet = client.open("ATH_NSE").worksheet("ATH_TV")
 
-# Optional: Write headers
-sheet.update(
-    "A1:G1",
-    [[
-        "Symbol",
-        "Prev_Close",
-        "Monthly20SMA",
-        "ATH",
-        "ATH_Date",
-        "ATH_%",
-        "Stock_Age"
-    ]]
-)
-
-# ----------------------------------
-# Read Symbols
-# ----------------------------------
+# ==========================================================
+# READ SYMBOLS
+# ==========================================================
 
 symbols = [
     s.strip()
@@ -52,42 +36,53 @@ symbols = [
     if s.strip()
 ]
 
-# ----------------------------------
-# TradingView Connection
-# ----------------------------------
+print(f"Total Symbols : {len(symbols)}")
+
+# ==========================================================
+# TVDATAFEED
+# ==========================================================
 
 tv = TvDatafeed()
 
-results = []
+# ==========================================================
+# PROCESS ONE STOCK
+# ==========================================================
 
-# ----------------------------------
-# Process Stocks
-# ----------------------------------
-
-for symbol in symbols:
+def process_stock(symbol):
 
     try:
 
-        print(f"Processing {symbol}")
+        df = None
 
-        df = tv.get_hist(
-            symbol=symbol,
-            exchange="NSE",
-            interval=Interval.in_monthly,
-            n_bars=300
-        )
+        for attempt in range(3):
+
+            try:
+
+                df = tv.get_hist(
+                    symbol=symbol,
+                    exchange="NSE",
+                    interval=Interval.in_monthly,
+                    n_bars=300
+                )
+
+                if df is not None:
+                    break
+
+            except Exception:
+
+                time.sleep(3)
 
         if df is None:
             raise Exception("No Data")
 
-        # Remove current incomplete month
+        # remove current month
         df = df.iloc[:-1]
 
-        months_history = len(df)
+        stock_age = len(df)
 
-        if months_history < 20:
+        if stock_age < 20:
             raise Exception(
-                f"Only {months_history} monthly candles"
+                f"Only {stock_age} monthly candles"
             )
 
         prev_close = round(
@@ -96,11 +91,13 @@ for symbol in symbols:
         )
 
         sma20 = round(
-            df["close"].rolling(20).mean().iloc[-1],
+            df["close"]
+            .rolling(20)
+            .mean()
+            .iloc[-1],
             2
         )
 
-        # Safe ATH calculation
         ath_idx = df["high"].idxmax()
 
         ath = round(
@@ -115,43 +112,95 @@ for symbol in symbols:
             2
         )
 
-        is_50_month_old = (
-            "YES"
-            if months_history >= 50
-            else "NO"
-        )
+        print(f"OK : {symbol}")
 
-        results.append([
-            prev_close,
-            sma20,
-            ath,
-            ath_date,
-            ath_pct,
-            months_history
-        ])
+        return (
+            symbol,
+            [
+                prev_close,
+                sma20,
+                ath,
+                ath_date,
+                ath_pct,
+                stock_age
+            ]
+        )
 
     except Exception as e:
 
         print(
-            f"ERROR | {symbol} | {str(e)}"
+            f"ERROR : {symbol} : {str(e)}"
         )
 
-        results.append([
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-        ])
+        return (
+            symbol,
+            [
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+            ]
+        )
 
-# ----------------------------------
-# Write Results
-# ----------------------------------
+# ==========================================================
+# PARALLEL EXECUTION
+# ==========================================================
+
+results_dict = {}
+
+MAX_WORKERS = 8
+
+with ThreadPoolExecutor(
+    max_workers=MAX_WORKERS
+) as executor:
+
+    futures = {
+        executor.submit(
+            process_stock,
+            symbol
+        ): symbol
+        for symbol in symbols
+    }
+
+    completed = 0
+
+    for future in as_completed(futures):
+
+        symbol, result = future.result()
+
+        results_dict[symbol] = result
+
+        completed += 1
+
+        if completed % 50 == 0:
+
+            print(
+                f"Completed {completed}/{len(symbols)}"
+            )
+
+# ==========================================================
+# PRESERVE SHEET ORDER
+# ==========================================================
+
+results = [
+    results_dict.get(
+        symbol,
+        ["", "", "", "", "", ""]
+    )
+    for symbol in symbols
+]
+
+# ==========================================================
+# WRITE TO GOOGLE SHEET
+# ==========================================================
 
 sheet.update(
     f"B2:G{len(results)+1}",
     results
 )
 
-print("Update Completed")
+print("================================")
+print("Update Completed Successfully")
+print("================================")
