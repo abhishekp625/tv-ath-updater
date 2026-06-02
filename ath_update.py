@@ -2,10 +2,11 @@ import json
 import time
 import os
 import gspread
+from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tvDatafeed import TvDatafeed, Interval
 from oauth2client.service_account import ServiceAccountCredentials
-
+from datetime import datetime, timedelta
 # ==========================================================
 # GOOGLE AUTH
 # ==========================================================
@@ -32,7 +33,7 @@ sheet = client.open("ATH_NSE").worksheet("ATH_TV")
 last_row = sheet.row_count
 
 sheet.batch_clear([
-    f"B2:G{last_row}"
+    f"B2:H{last_row}"
 ])
 # ==========================================================
 # READ SYMBOLS
@@ -136,7 +137,8 @@ def process_stock(symbol):
                 ath,
                 ath_date,
                 ath_pct,
-                stock_age
+                stock_age,
+                ""
             ]
         )
 
@@ -154,7 +156,8 @@ def process_stock(symbol):
                 "",
                 "",
                 "",
-                ""
+                "",
+                str(e)
             ]
         )
 
@@ -201,7 +204,7 @@ with ThreadPoolExecutor(
 results = [
     results_dict.get(
         symbol,
-        ["", "", "", "", "", ""]
+        ["", "", "", "", "", "", ""]
     )
     for symbol in symbols
 ]
@@ -211,8 +214,16 @@ results = [
 # ==========================================================
 
 sheet.update(
-    f"B2:G{len(results)+1}",
-    results
+    values=results,
+    range_name=f"B2:H{len(results)+1}"
+)
+
+
+ist_time = datetime.utcnow() + timedelta(hours=5, minutes=30)
+
+sheet.update(
+    values=[[ist_time.strftime("%Y-%m-%d %H:%M:%S IST")]],
+    range_name="O2"
 )
 
 print("================================")
