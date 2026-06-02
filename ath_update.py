@@ -33,7 +33,7 @@ sheet = client.open("ATH_NSE").worksheet("ATH_TV")
 last_row = sheet.row_count
 
 sheet.batch_clear([
-    f"B2:H{last_row}"
+    f"B2:E{last_row}"
 ])
 # ==========================================================
 # READ SYMBOLS
@@ -93,17 +93,17 @@ def process_stock(symbol):
         # remove current month
         df = df.iloc[:-1]
 
-        stock_age = len(df)
+        # stock_age = len(df)
 
-        if stock_age < 20:
-            raise Exception(
-                f"Only {stock_age} monthly candles"
-            )
+        # if stock_age < 20:
+        #     raise Exception(
+        #         f"Only {stock_age} monthly candles"
+        #     )
 
-        prev_close = round(
-            df["close"].iloc[-1],
-            2
-        )
+        # prev_close = round(
+        #     df["close"].iloc[-1],
+        #     2
+        # )
 
         sma20 = round(
             df["close"]
@@ -122,22 +122,19 @@ def process_stock(symbol):
 
         ath_date = ath_idx.strftime("%Y-%m")
 
-        ath_pct = round(
-            ((prev_close - ath) / ath) * 100,
-            2
-        )
+        # ath_pct = round(
+        #     ((prev_close - ath) / ath) * 100,
+        #     2
+        # )
 
         print(f"OK : {symbol}")
 
         return (
             symbol,
             [
-                prev_close,
                 sma20,
                 ath,
                 ath_date,
-                ath_pct,
-                stock_age,
                 ""
             ]
         )
@@ -151,8 +148,6 @@ def process_stock(symbol):
         return (
             symbol,
             [
-                "",
-                "",
                 "",
                 "",
                 "",
@@ -204,7 +199,7 @@ with ThreadPoolExecutor(
 results = [
     results_dict.get(
         symbol,
-        ["", "", "", "", "", "", ""]
+        ["", "", "", ""]
     )
     for symbol in symbols
 ]
@@ -215,7 +210,7 @@ results = [
 
 sheet.update(
     values=results,
-    range_name=f"B2:H{len(results)+1}"
+    range_name=f"B2:E{len(results)+1}"
 )
 
 
@@ -223,7 +218,7 @@ ist_time = datetime.utcnow() + timedelta(hours=5, minutes=30)
 
 sheet.update(
     values=[[ist_time.strftime("%Y-%m-%d %H:%M:%S IST")]],
-    range_name="O2"
+    range_name="M2"
 )
 
 print("================================")
