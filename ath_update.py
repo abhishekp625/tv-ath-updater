@@ -27,6 +27,13 @@ client = gspread.authorize(creds)
 
 sheet = client.open("ATH_NSE").worksheet("ATH_TV")
 
+# Clear old data from B:G
+
+last_row = sheet.row_count
+
+sheet.batch_clear([
+    f"B2:G{last_row}"
+])
 # ==========================================================
 # READ SYMBOLS
 # ==========================================================
