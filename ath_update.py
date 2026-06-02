@@ -138,7 +138,7 @@ def process_stock(symbol):
                 ath_date,
                 ath_pct,
                 stock_age,
-                ""
+                Log
             ]
         )
 
