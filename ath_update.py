@@ -43,6 +43,8 @@ print(f"Total Symbols : {len(symbols)}")
 # TVDATAFEED
 # ==========================================================
 
+print("TV_USERNAME exists:", os.getenv("TV_USERNAME") is not None)
+print("TV_PASSWORD exists:", os.getenv("TV_PASSWORD") is not None)
 
 tv = TvDatafeed(
     username=os.getenv("TV_USERNAME"),
