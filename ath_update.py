@@ -91,7 +91,7 @@ def process_stock(symbol):
             raise Exception("No Data")
 
         # remove current month
-        df = df.iloc[:-2]
+        df = df.iloc[:-1]
 
         # stock_age = len(df)
 
